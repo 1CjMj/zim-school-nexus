@@ -9,11 +9,21 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;
   }
+
+  const firstName = user.full_name?.split(' ')[0] || 'User';
 
   return (
     <SidebarProvider>
@@ -24,7 +34,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <SidebarTrigger className="mr-4" />
             <div className="flex-1">
               <h1 className="text-xl font-semibold text-card-foreground">
-                Welcome back, {user.name.split(' ')[0]}!
+                Welcome back, {firstName}!
               </h1>
               <p className="text-sm text-muted-foreground capitalize">
                 {user.role} Dashboard

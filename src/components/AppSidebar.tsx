@@ -58,17 +58,18 @@ const AppSidebar = () => {
           { title: 'Fees', url: '/fees', icon: '💰' },
           { title: 'Messages', url: '/messages', icon: '💬' },
         ];
-      case 'bursar':
-        return [
-          ...baseItems,
-          { title: 'Fee Management', url: '/fees', icon: '💰' },
-          { title: 'Reports', url: '/reports', icon: '📈' },
-          { title: 'Payments', url: '/payments', icon: '💳' },
-        ];
       default:
         return baseItems;
     }
   };
+
+  if (!user) return null;
+
+  const initials = user.full_name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <Sidebar>
@@ -109,15 +110,15 @@ const AppSidebar = () => {
           <div className="flex items-center space-x-3">
             <Avatar className="w-8 h-8">
               <AvatarFallback className="bg-primary text-primary-foreground">
-                {user?.name.split(' ').map(n => n[0]).join('')}
+                {initials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {user?.name}
+                {user.full_name}
               </p>
               <p className="text-xs text-sidebar-foreground/60 capitalize">
-                {user?.role}
+                {user.role}
               </p>
             </div>
           </div>

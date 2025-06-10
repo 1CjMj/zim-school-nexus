@@ -10,7 +10,8 @@ const Dashboard = () => {
   const getWelcomeMessage = () => {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-    return `${greeting}, ${user?.name.split(' ')[0]}!`;
+    const firstName = user?.full_name?.split(' ')[0] || 'User';
+    return `${greeting}, ${firstName}!`;
   };
 
   const getDashboardContent = () => {
@@ -167,48 +168,14 @@ const Dashboard = () => {
           </div>
         );
 
-      case 'bursar':
-        return (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Revenue</CardTitle>
-                <CardDescription>This term</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary">$124,500</div>
-                <p className="text-sm text-muted-foreground">+12% from last term</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Outstanding Fees</CardTitle>
-                <CardDescription>Yet to be collected</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-destructive">$23,400</div>
-                <p className="text-sm text-muted-foreground">15% of total fees</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Paid This Week</CardTitle>
-                <CardDescription>Recent payments</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-secondary">$8,750</div>
-                <p className="text-sm text-muted-foreground">47 transactions</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
       default:
         return <div>Welcome to Educ8!</div>;
     }
   };
+
+  if (!user) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6 animate-slide-in">
