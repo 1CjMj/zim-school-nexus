@@ -1,7 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface UserProfile {
@@ -15,7 +13,7 @@ export interface UserProfile {
 
 export interface AuthContextType {
   user: UserProfile | null;
-  session: Session | null;
+  session: any | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, fullName: string, role?: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -26,9 +24,48 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Mock demo accounts
+const demoAccounts = [
+  { 
+    id: '1', 
+    email: 'admin@educ8.zw', 
+    password: 'demo123', 
+    full_name: 'Tendai Mukamuri', 
+    role: 'admin' as const 
+  },
+  { 
+    id: '2', 
+    email: 'teacher@educ8.zw', 
+    password: 'demo123', 
+    full_name: 'Mrs. Chipo Mutendi', 
+    role: 'teacher' as const 
+  },
+  { 
+    id: '3', 
+    email: 'student@educ8.zw', 
+    password: 'demo123', 
+    full_name: 'Tatenda Moyo', 
+    role: 'student' as const 
+  },
+  { 
+    id: '4', 
+    email: 'parent@educ8.zw', 
+    password: 'demo123', 
+    full_name: 'Mr. James Moyo', 
+    role: 'parent' as const 
+  },
+  { 
+    id: '5', 
+    email: 'bursar@educ8.zw', 
+    password: 'demo123', 
+    full_name: 'Mrs. Grace Sibanda', 
+    role: 'admin' as const 
+  }
+];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -38,6 +75,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedDarkMode) {
       setIsDarkMode(JSON.parse(savedDarkMode));
     }
+
+    // Check for saved user session
+    const savedUser = localStorage.getItem('educ8_user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setSession({ user: parsedUser, access_token: 'mock-token' });
+      } catch (error) {
+        console.error('Error parsing saved user:', error);
+        localStorage.removeItem('educ8_user');
+      }
+    }
+    
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -49,91 +101,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDarkMode]);
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        
-        if (session?.user) {
-          // Fetch user profile from profiles table
-          setTimeout(async () => {
-            try {
-              const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-              if (error) {
-                console.error('Error fetching profile:', error);
-                toast({
-                  title: "Error",
-                  description: "Failed to load user profile",
-                  variant: "destructive"
-                });
-                return;
-              }
-
-              if (profile) {
-                setUser({
-                  id: profile.id,
-                  email: profile.email,
-                  full_name: profile.full_name,
-                  role: profile.role,
-                  avatar_url: profile.avatar_url,
-                  phone: profile.phone
-                });
-              }
-            } catch (error) {
-              console.error('Error in profile fetch:', error);
-            }
-          }, 0);
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
-      }
-    );
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (!session) {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('Login error:', error);
+      const account = demoAccounts.find(acc => acc.email === email && acc.password === password);
+      
+      if (!account) {
         toast({
           title: "Login Failed",
-          description: error.message,
+          description: "Invalid email or password",
           variant: "destructive"
         });
         return false;
       }
 
-      if (data.user) {
-        toast({
-          title: "Login Successful",
-          description: "Welcome to Educ8!",
-        });
-        return true;
-      }
-      
-      return false;
+      const userProfile: UserProfile = {
+        id: account.id,
+        email: account.email,
+        full_name: account.full_name,
+        role: account.role
+      };
+
+      setUser(userProfile);
+      setSession({ user: userProfile, access_token: 'mock-token' });
+      localStorage.setItem('educ8_user', JSON.stringify(userProfile));
+
+      toast({
+        title: "Login Successful",
+        description: "Welcome to Educ8!",
+      });
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       toast({
@@ -147,37 +143,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (email: string, password: string, fullName: string, role: string = 'student'): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            full_name: fullName,
-            role: role
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Signup error:', error);
+      // Check if user already exists
+      const existingAccount = demoAccounts.find(acc => acc.email === email);
+      if (existingAccount) {
         toast({
           title: "Signup Failed",
-          description: error.message,
+          description: "An account with this email already exists",
           variant: "destructive"
         });
         return false;
       }
 
-      if (data.user) {
-        toast({
-          title: "Signup Successful",
-          description: "Please check your email to verify your account.",
-        });
-        return true;
-      }
-      
-      return false;
+      // For mock system, just show success message
+      toast({
+        title: "Signup Successful",
+        description: "Account created successfully! You can now log in.",
+      });
+      return true;
     } catch (error) {
       console.error('Signup error:', error);
       toast({
@@ -191,20 +173,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async (): Promise<void> => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-        toast({
-          title: "Logout Failed",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Logged Out",
-          description: "You have been successfully logged out.",
-        });
-      }
+      setUser(null);
+      setSession(null);
+      localStorage.removeItem('educ8_user');
+      
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
     } catch (error) {
       console.error('Logout error:', error);
       toast({
