@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Sidebar,
@@ -76,10 +75,14 @@ const AppSidebar = () => {
   if (!user) return null;
 
   const initials = user.full_name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase();
+    ? user.full_name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+    : user.email
+        ? user.email.substring(0, 2).toUpperCase()
+        : 'U';
 
   return (
     <Sidebar>
@@ -125,7 +128,7 @@ const AppSidebar = () => {
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {user.full_name}
+                {user.full_name || user.email}
               </p>
               <p className="text-xs text-sidebar-foreground/60 capitalize">
                 {user.role}
