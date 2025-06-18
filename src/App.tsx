@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +7,14 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginForm from "./components/LoginForm";
 import DashboardLayout from "./components/DashboardLayout";
 import Dashboard from "./components/Dashboard";
+import Students from "./components/Students";
+import Teachers from "./components/Teachers";
+import Classes from "./components/Classes";
+import Assignments from "./components/Assignments";
+import Grades from "./components/Grades";
+import Attendance from "./components/Attendance";
+import Messages from "./components/Messages";
+import Fees from "./components/Fees";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +57,86 @@ const AppContent = () => {
             <ProtectedRoute>
               <DashboardLayout>
                 <Dashboard />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/students"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Students />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teachers"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Teachers />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/classes"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Classes />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/assignments"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Assignments />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/grades"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Grades />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Attendance />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Messages />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fees"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Fees />
               </DashboardLayout>
             </ProtectedRoute>
           }

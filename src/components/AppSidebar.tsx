@@ -16,9 +16,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Link, useLocation } from 'react-router-dom';
 
 const AppSidebar = () => {
   const { user, logout, isDarkMode, toggleDarkMode } = useAuth();
+  const location = useLocation();
 
   const getMenuItems = () => {
     const baseItems = [
@@ -32,6 +34,11 @@ const AppSidebar = () => {
           { title: 'Students', url: '/students', icon: '👥' },
           { title: 'Teachers', url: '/teachers', icon: '👨‍🏫' },
           { title: 'Classes', url: '/classes', icon: '🏫' },
+          { title: 'Assignments', url: '/assignments', icon: '📝' },
+          { title: 'Grades', url: '/grades', icon: '📊' },
+          { title: 'Attendance', url: '/attendance', icon: '✅' },
+          { title: 'Messages', url: '/messages', icon: '💬' },
+          { title: 'Fees', url: '/fees', icon: '💰' },
           { title: 'Reports', url: '/reports', icon: '📈' },
           { title: 'Settings', url: '/settings', icon: '⚙️' },
         ];
@@ -42,6 +49,7 @@ const AppSidebar = () => {
           { title: 'Assignments', url: '/assignments', icon: '📝' },
           { title: 'Grades', url: '/grades', icon: '📊' },
           { title: 'Attendance', url: '/attendance', icon: '✅' },
+          { title: 'Messages', url: '/messages', icon: '💬' },
         ];
       case 'student':
         return [
@@ -49,6 +57,7 @@ const AppSidebar = () => {
           { title: 'My Grades', url: '/grades', icon: '📊' },
           { title: 'Assignments', url: '/assignments', icon: '📝' },
           { title: 'Timetable', url: '/timetable', icon: '📅' },
+          { title: 'Messages', url: '/messages', icon: '💬' },
           { title: 'Resources', url: '/resources', icon: '📚' },
         ];
       case 'parent':
@@ -57,6 +66,7 @@ const AppSidebar = () => {
           { title: 'Children', url: '/children', icon: '👨‍👩‍👧‍👦' },
           { title: 'Fees', url: '/fees', icon: '💰' },
           { title: 'Messages', url: '/messages', icon: '💬' },
+          { title: 'Grades', url: '/grades', icon: '📊' },
         ];
       default:
         return baseItems;
@@ -92,11 +102,11 @@ const AppSidebar = () => {
             <SidebarMenu>
               {getMenuItems().map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url} className="flex items-center space-x-3">
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                    <Link to={item.url} className="flex items-center space-x-3">
                       <span className="text-lg">{item.icon}</span>
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
