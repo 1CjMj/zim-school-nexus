@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Filter, MoreVertical, Mail, Phone } from 'lucide-react';
+import { Search, Plus, Filter, MoreVertical, Mail, Phone, Loader2 } from 'lucide-react';
 import { 
   Table, 
   TableBody, 
@@ -20,62 +20,52 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useTeachers, useDeleteTeacher, type Teacher } from '@/hooks/useTeachers';
+import { TeacherForm } from './TeacherForm';
 
 const Teachers = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
 
-  const teachers = [
-    {
-      id: '1',
-      name: 'Mrs. Chipo Mutendi',
-      email: 'chipo.mutendi@educ8.zw',
-      phone: '+263 77 123 4567',
-      subjects: ['Mathematics', 'Physics'],
-      classes: ['Form 4A', 'Form 3B', 'Form 2C'],
-      experience: '8 years',
-      qualification: 'BSc Mathematics',
-      status: 'Active'
-    },
-    {
-      id: '2',
-      name: 'Mr. Tonderai Chikwanha',
-      email: 'tonderai.chikwanha@educ8.zw',
-      phone: '+263 77 234 5678',
-      subjects: ['English Literature', 'History'],
-      classes: ['Form 4B', 'Form 3A'],
-      experience: '12 years',
-      qualification: 'BA English Literature',
-      status: 'Active'
-    },
-    {
-      id: '3',
-      name: 'Ms. Rutendo Makoni',
-      email: 'rutendo.makoni@educ8.zw',
-      phone: '+263 77 345 6789',
-      subjects: ['Biology', 'Chemistry'],
-      classes: ['Form 4C', 'Form 3C'],
-      experience: '5 years',
-      qualification: 'BSc Biology',
-      status: 'Active'
-    },
-    {
-      id: '4',
-      name: 'Mr. Trust Mpofu',
-      email: 'trust.mpofu@educ8.zw',
-      phone: '+263 77 456 7890',
-      subjects: ['Geography', 'Agriculture'],
-      classes: ['Form 2A', 'Form 1B'],
-      experience: '15 years',
-      qualification: 'BSc Geography',
-      status: 'On Leave'
-    }
-  ];
+  const { data: teachers, isLoading, error } = useTeachers();
+  const deleteTeacher = useDeleteTeacher();
 
-  const filteredTeachers = teachers.filter(teacher =>
-    teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredTeachers = teachers?.filter(teacher =>
+    teacher.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     teacher.subjects.some(subject => subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
     teacher.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) || [];
+
+  const activeTeachers = teachers?.filter(t => t.status === 'active') || [];
+  const onLeaveTeachers = teachers?.filter(t => t.status === 'on_leave') || [];
+
+  const handleEdit = (teacher: Teacher) => {
+    setSelectedTeacher(teacher);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (teacher: Teacher) => {
+    if (window.confirm(`Are you sure you want to delete ${teacher.full_name}?`)) {
+      await deleteTeacher.mutateAsync(teacher.id);
+    }
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setSelectedTeacher(null);
+  };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-destructive">Error loading teachers</h3>
+          <p className="text-muted-foreground mt-2">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -84,7 +74,7 @@ const Teachers = () => {
           <h1 className="text-3xl font-bold text-foreground">Teachers</h1>
           <p className="text-muted-foreground">Manage teaching staff and assignments</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={() => setIsFormOpen(true)}>
           <Plus className="h-4 w-4" />
           Add Teacher
         </Button>
@@ -93,25 +83,25 @@ const Teachers = () => {
       <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">87</CardTitle>
+            <CardTitle className="text-2xl">{teachers?.length || 0}</CardTitle>
             <CardDescription>Total Teachers</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">82</CardTitle>
+            <CardTitle className="text-2xl">{activeTeachers.length}</CardTitle>
             <CardDescription>Active Teachers</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">5</CardTitle>
+            <CardTitle className="text-2xl">{onLeaveTeachers.length}</CardTitle>
             <CardDescription>On Leave</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">18:1</CardTitle>
+            <CardTitle className="text-2xl">-</CardTitle>
             <CardDescription>Student-Teacher Ratio</CardDescription>
           </CardHeader>
         </Card>
@@ -142,94 +132,132 @@ const Teachers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Subjects</TableHead>
-                <TableHead>Classes</TableHead>
-                <TableHead>Experience</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTeachers.map((teacher) => (
-                <TableRow key={teacher.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {teacher.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{teacher.name}</div>
-                        <div className="text-sm text-muted-foreground">{teacher.qualification}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.subjects.map((subject) => (
-                        <Badge key={subject} variant="secondary" className="text-xs">
-                          {subject}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.classes.slice(0, 2).map((cls) => (
-                        <Badge key={cls} variant="outline" className="text-xs">
-                          {cls}
-                        </Badge>
-                      ))}
-                      {teacher.classes.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{teacher.classes.length - 2} more
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{teacher.experience}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Mail className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={teacher.status === 'Active' ? 'default' : 'secondary'}>
-                      {teacher.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem>Assign Classes</DropdownMenuItem>
-                        <DropdownMenuItem>View Schedule</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading teachers...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Teacher</TableHead>
+                  <TableHead>Subjects</TableHead>
+                  <TableHead>Classes</TableHead>
+                  <TableHead>Experience</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredTeachers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      {searchQuery ? 'No teachers found matching your search.' : 'No teachers found. Add your first teacher!'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTeachers.map((teacher) => (
+                    <TableRow key={teacher.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {teacher.full_name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{teacher.full_name}</div>
+                            <div className="text-sm text-muted-foreground">{teacher.qualification || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {teacher.subjects.length > 0 ? (
+                            teacher.subjects.map((subject) => (
+                              <Badge key={subject} variant="secondary" className="text-xs">
+                                {subject}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No subjects assigned</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {teacher.classes.length > 0 ? (
+                            <>
+                              {teacher.classes.slice(0, 2).map((cls) => (
+                                <Badge key={cls} variant="outline" className="text-xs">
+                                  {cls}
+                                </Badge>
+                              ))}
+                              {teacher.classes.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{teacher.classes.length - 2} more
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No classes assigned</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{teacher.experience || 'N/A'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Phone className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
+                          {teacher.status === 'active' ? 'Active' : 'On Leave'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(teacher)}>
+                              Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>Assign Classes</DropdownMenuItem>
+                            <DropdownMenuItem>View Schedule</DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDelete(teacher)}
+                            >
+                              Delete Teacher
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <TeacherForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        teacher={selectedTeacher}
+      />
     </div>
   );
 };
