@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Filter, Download, CreditCard, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Filter, Download, CreditCard, AlertCircle, CheckCircle, Plus, Loader2, MoreVertical } from 'lucide-react';
 import { 
   Table, 
   TableBody, 
@@ -14,65 +14,72 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { useFees, useDeleteFee, type Fee } from '@/hooks/useFees';
+import { FeeForm } from './FeeForm';
 
 const Fees = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
 
-  const feeData = [
-    {
-      id: '1',
-      studentName: 'Tatenda Moyo',
-      studentNumber: 'STU001',
-      class: 'Form 4A',
-      totalFees: 450,
-      paidAmount: 300,
-      outstandingAmount: 150,
-      dueDate: '2024-02-15',
-      status: 'partial',
-      parent: 'Mr. James Moyo',
-      lastPayment: '2024-01-10'
-    },
-    {
-      id: '2',
-      studentName: 'Chipo Mukamuri',
-      studentNumber: 'STU002',
-      class: 'Form 3B',
-      totalFees: 420,
-      paidAmount: 420,
-      outstandingAmount: 0,
-      dueDate: '2024-02-15',
-      status: 'paid',
-      parent: 'Mrs. Grace Mukamuri',
-      lastPayment: '2024-01-05'
-    },
-    {
-      id: '3',
-      studentName: 'Takudzwa Sibanda',
-      studentNumber: 'STU003',
-      class: 'Form 2C',
-      totalFees: 380,
-      paidAmount: 0,
-      outstandingAmount: 380,
-      dueDate: '2024-02-15',
-      status: 'outstanding',
-      parent: 'Mr. Peter Sibanda',
-      lastPayment: null
-    },
-    {
-      id: '4',
-      studentName: 'Tinashe Gumbo',
-      studentNumber: 'STU004',
-      class: 'Form 1A',
-      totalFees: 350,
-      paidAmount: 175,
-      outstandingAmount: 175,
-      dueDate: '2024-02-15',
-      status: 'partial',
-      parent: 'Mrs. Faith Gumbo',
-      lastPayment: '2024-01-08'
+  const { data: fees, isLoading, error } = useFees();
+  const deleteFee = useDeleteFee();
+
+  const filteredFees = useMemo(() => {
+    if (!fees) return [];
+    
+    return fees.filter(fee =>
+      fee.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      fee.fee_type.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [fees, searchQuery]);
+
+  const stats = useMemo(() => {
+    if (!fees) return {
+      totalCollected: 0,
+      totalOutstanding: 0,
+      totalExpected: 0,
+      collectionRate: 0,
+      fullyPaidCount: 0
+    };
+
+    const totalCollected = fees.reduce((sum, fee) => sum + fee.amount_paid, 0);
+    const totalOutstanding = fees.reduce((sum, fee) => sum + fee.outstanding_amount, 0);
+    const totalExpected = fees.reduce((sum, fee) => sum + fee.amount_due, 0);
+    const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+    const fullyPaidCount = fees.filter(f => f.status === 'paid').length;
+
+    return {
+      totalCollected,
+      totalOutstanding,
+      totalExpected,
+      collectionRate,
+      fullyPaidCount
+    };
+  }, [fees]);
+
+  const handleEdit = (fee: Fee) => {
+    setSelectedFee(fee);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (fee: Fee) => {
+    if (window.confirm(`Are you sure you want to delete the fee record for ${fee.student_name}?`)) {
+      await deleteFee.mutateAsync(fee.id);
     }
-  ];
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setSelectedFee(null);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -98,10 +105,16 @@ const Fees = () => {
     }
   };
 
-  const totalCollected = feeData.reduce((sum, fee) => sum + fee.paidAmount, 0);
-  const totalOutstanding = feeData.reduce((sum, fee) => sum + fee.outstandingAmount, 0);
-  const totalExpected = feeData.reduce((sum, fee) => sum + fee.totalFees, 0);
-  const collectionRate = Math.round((totalCollected / totalExpected) * 100);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-destructive">Error loading fees</h3>
+          <p className="text-muted-foreground mt-2">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -115,9 +128,9 @@ const Fees = () => {
             <Download className="h-4 w-4" />
             Export Report
           </Button>
-          <Button className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Record Payment
+          <Button className="flex items-center gap-2" onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Fee Record
           </Button>
         </div>
       </div>
@@ -125,31 +138,29 @@ const Fees = () => {
       <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">${totalCollected}</CardTitle>
+            <CardTitle className="text-2xl">${stats.totalCollected.toFixed(2)}</CardTitle>
             <CardDescription>Total Collected</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <Progress value={collectionRate} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-1">{collectionRate}% collection rate</p>
+            <Progress value={stats.collectionRate} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-1">{stats.collectionRate}% collection rate</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl text-red-600">${totalOutstanding}</CardTitle>
+            <CardTitle className="text-2xl text-red-600">${stats.totalOutstanding.toFixed(2)}</CardTitle>
             <CardDescription>Outstanding Amount</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">${totalExpected}</CardTitle>
+            <CardTitle className="text-2xl">${stats.totalExpected.toFixed(2)}</CardTitle>
             <CardDescription>Total Expected</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">
-              {feeData.filter(f => f.status === 'paid').length}
-            </CardTitle>
+            <CardTitle className="text-2xl">{stats.fullyPaidCount}</CardTitle>
             <CardDescription>Fully Paid Students</CardDescription>
           </CardHeader>
         </Card>
@@ -180,143 +191,116 @@ const Fees = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Total Fees</TableHead>
-                <TableHead>Paid Amount</TableHead>
-                <TableHead>Outstanding</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Parent/Guardian</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {feeData.map((fee) => (
-                <TableRow key={fee.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {fee.studentName.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{fee.studentName}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {fee.studentNumber} • {fee.class}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading fees...</span>
+            </div>
+          ) : filteredFees.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Fee Type</TableHead>
+                  <TableHead>Total Fees</TableHead>
+                  <TableHead>Paid Amount</TableHead>
+                  <TableHead>Outstanding</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Parent/Guardian</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredFees.map((fee) => (
+                  <TableRow key={fee.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {fee.student_name.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{fee.student_name}</div>
+                          <div className="text-sm text-muted-foreground">{fee.student_id}</div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">${fee.totalFees}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-green-600 font-medium">${fee.paidAmount}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`font-medium ${fee.outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ${fee.outstandingAmount}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">
-                      {new Date(fee.dueDate).toLocaleDateString()}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(fee.status)}
-                      <Badge variant={getStatusColor(fee.status)}>
-                        {fee.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{fee.parent}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="sm">
-                        Record Payment
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        Send Reminder
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{fee.fee_type}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium">${fee.amount_due.toFixed(2)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-green-600 font-medium">${fee.amount_paid.toFixed(2)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-medium ${fee.outstanding_amount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        ${fee.outstanding_amount.toFixed(2)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {fee.due_date ? new Date(fee.due_date).toLocaleDateString() : '-'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(fee.status)}
+                        <Badge variant={getStatusColor(fee.status)}>
+                          {fee.status}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{fee.parent_name || '-'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(fee)}>
+                            Edit Fee
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>Record Payment</DropdownMenuItem>
+                          <DropdownMenuItem>Send Reminder</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => handleDelete(fee)}
+                          >
+                            Delete Fee
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold mb-2">No fee records found</h3>
+              <p className="text-muted-foreground mb-4">Add fee records to get started</p>
+              <Button onClick={() => setIsFormOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Fee Record
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment History</CardTitle>
-            <CardDescription>Recent fee payments</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {feeData.filter(f => f.lastPayment).map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                      {payment.studentName.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-sm">{payment.studentName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(payment.lastPayment).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-green-600">+${payment.paidAmount}</p>
-                  <p className="text-xs text-muted-foreground">Payment</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Fee Categories</CardTitle>
-            <CardDescription>Breakdown by fee type</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Tuition Fees</span>
-                <span className="font-medium">$1,200</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Lab Fees</span>
-                <span className="font-medium">$150</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Sports Fees</span>
-                <span className="font-medium">$75</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Library Fees</span>
-                <span className="font-medium">$25</span>
-              </div>
-              <div className="flex justify-between items-center border-t pt-3">
-                <span className="font-medium">Total</span>
-                <span className="font-bold">$1,450</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <FeeForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        feeData={selectedFee}
+      />
     </div>
   );
 };

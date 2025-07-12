@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Filter, Download, TrendingUp, TrendingDown, MoreVertical } from 'lucide-react';
+import { Search, Filter, Download, TrendingUp, TrendingDown, MoreVertical, Plus, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { 
   Table, 
@@ -22,75 +22,122 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useGrades, useDeleteGrade, type Grade } from '@/hooks/useGrades';
+import { GradeForm } from './GradeForm';
 
 const Grades = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
 
-  const gradeData = [
-    {
-      id: '1',
-      studentName: 'Tatenda Moyo',
-      studentNumber: 'STU001',
-      class: 'Form 4A',
-      mathematics: { grade: 85, trend: 'up' },
-      english: { grade: 78, trend: 'stable' },
-      physics: { grade: 92, trend: 'up' },
-      biology: { grade: 88, trend: 'down' },
-      average: 85.8,
-      rank: 3
-    },
-    {
-      id: '2',
-      studentName: 'Chipo Mukamuri',
-      studentNumber: 'STU002',
-      class: 'Form 3B',
-      mathematics: { grade: 92, trend: 'up' },
-      english: { grade: 89, trend: 'up' },
-      physics: { grade: 87, trend: 'stable' },
-      biology: { grade: 94, trend: 'up' },
-      average: 90.5,
-      rank: 1
-    },
-    {
-      id: '3',
-      studentName: 'Takudzwa Sibanda',
-      studentNumber: 'STU003',
-      class: 'Form 2C',
-      mathematics: { grade: 76, trend: 'down' },
-      english: { grade: 82, trend: 'up' },
-      physics: { grade: 74, trend: 'down' },
-      biology: { grade: 79, trend: 'stable' },
-      average: 77.8,
-      rank: 8
-    }
-  ];
+  const { data: grades, isLoading, error } = useGrades();
+  const deleteGrade = useDeleteGrade();
 
-  const subjectAverages = [
-    { subject: 'Mathematics', average: 84.2, students: 156, improvement: '+2.3%' },
-    { subject: 'English Literature', average: 81.7, students: 142, improvement: '+1.8%' },
-    { subject: 'Physics', average: 83.9, students: 134, improvement: '+3.1%' },
-    { subject: 'Biology', average: 87.3, students: 148, improvement: '+0.9%' },
-    { subject: 'Chemistry', average: 79.8, students: 128, improvement: '-1.2%' },
-    { subject: 'History', average: 86.1, students: 167, improvement: '+2.7%' }
-  ];
+  // Group grades by student and calculate statistics
+  const studentGrades = useMemo(() => {
+    if (!grades) return [];
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
-      case 'down':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
-      default:
-        return <div className="h-4 w-4" />;
+    const groupedGrades = grades.reduce((acc, grade) => {
+      const key = grade.student_id;
+      if (!acc[key]) {
+        acc[key] = {
+          student_id: grade.student_id,
+          student_name: grade.student_name || 'Unknown Student',
+          student_number: grade.student_number || '',
+          class_name: grade.class_name || '',
+          subjects: {},
+          total_grades: 0,
+          total_score: 0
+        };
+      }
+
+      acc[key].subjects[grade.subject] = {
+        grade: grade.grade,
+        max_grade: grade.max_grade,
+        percentage: Math.round((grade.grade / grade.max_grade) * 100)
+      };
+      
+      acc[key].total_grades += 1;
+      acc[key].total_score += (grade.grade / grade.max_grade) * 100;
+
+      return acc;
+    }, {} as any);
+
+    return Object.values(groupedGrades).map((student: any) => ({
+      ...student,
+      average: student.total_grades > 0 ? Math.round(student.total_score / student.total_grades) : 0
+    }));
+  }, [grades]);
+
+  // Calculate subject averages
+  const subjectStats = useMemo(() => {
+    if (!grades) return [];
+
+    const subjectGrades = grades.reduce((acc, grade) => {
+      const subject = grade.subject;
+      if (!acc[subject]) {
+        acc[subject] = {
+          subject,
+          grades: [],
+          students: new Set()
+        };
+      }
+      
+      const percentage = (grade.grade / grade.max_grade) * 100;
+      acc[subject].grades.push(percentage);
+      acc[subject].students.add(grade.student_id);
+      
+      return acc;
+    }, {} as any);
+
+    return Object.values(subjectGrades).map((subject: any) => ({
+      subject: subject.subject,
+      average: subject.grades.length > 0 
+        ? subject.grades.reduce((sum: number, grade: number) => sum + grade, 0) / subject.grades.length 
+        : 0,
+      students: subject.students.size,
+      improvement: '+0.0%' // TODO: Calculate actual improvement from previous term
+    }));
+  }, [grades]);
+
+  const filteredStudents = studentGrades.filter(student =>
+    student.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.student_number.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleEdit = (grade: Grade) => {
+    setSelectedGrade(grade);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (grade: Grade) => {
+    if (window.confirm(`Are you sure you want to delete this grade for ${grade.student_name}?`)) {
+      await deleteGrade.mutateAsync(grade.id);
     }
   };
 
-  const getGradeColor = (grade: number) => {
-    if (grade >= 90) return 'text-green-600';
-    if (grade >= 80) return 'text-blue-600';
-    if (grade >= 70) return 'text-yellow-600';
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setSelectedGrade(null);
+  };
+
+  const getGradeColor = (percentage: number) => {
+    if (percentage >= 90) return 'text-green-600';
+    if (percentage >= 80) return 'text-blue-600';
+    if (percentage >= 70) return 'text-yellow-600';
     return 'text-red-600';
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-destructive">Error loading grades</h3>
+          <p className="text-muted-foreground mt-2">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -104,9 +151,9 @@ const Grades = () => {
             <Download className="h-4 w-4" />
             Export Grades
           </Button>
-          <Button className="flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Generate Report
+          <Button className="flex items-center gap-2" onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Grade
           </Button>
         </div>
       </div>
@@ -114,7 +161,12 @@ const Grades = () => {
       <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">84.7%</CardTitle>
+            <CardTitle className="text-2xl">
+              {subjectStats.length > 0 
+                ? Math.round(subjectStats.reduce((sum, subject) => sum + subject.average, 0) / subjectStats.length) + '%'
+                : '0%'
+              }
+            </CardTitle>
             <CardDescription>School Average</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -126,19 +178,26 @@ const Grades = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">1,247</CardTitle>
+            <CardTitle className="text-2xl">{studentGrades.length}</CardTitle>
             <CardDescription>Students Graded</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">92%</CardTitle>
+            <CardTitle className="text-2xl">
+              {studentGrades.length > 0 
+                ? Math.round((studentGrades.filter(s => s.average >= 50).length / studentGrades.length) * 100) + '%'
+                : '0%'
+              }
+            </CardTitle>
             <CardDescription>Pass Rate</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">156</CardTitle>
+            <CardTitle className="text-2xl">
+              {studentGrades.filter(s => s.average >= 85).length}
+            </CardTitle>
             <CardDescription>Honor Roll Students</CardDescription>
           </CardHeader>
         </Card>
@@ -173,101 +232,87 @@ const Grades = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Mathematics</TableHead>
-                    <TableHead>English</TableHead>
-                    <TableHead>Physics</TableHead>
-                    <TableHead>Biology</TableHead>
-                    <TableHead>Average</TableHead>
-                    <TableHead>Rank</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {gradeData.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              {student.studentName.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{student.studentName}</div>
-                            <div className="text-sm text-muted-foreground">{student.class}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${getGradeColor(student.mathematics.grade)}`}>
-                            {student.mathematics.grade}%
-                          </span>
-                          {getTrendIcon(student.mathematics.trend)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${getGradeColor(student.english.grade)}`}>
-                            {student.english.grade}%
-                          </span>
-                          {getTrendIcon(student.english.trend)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${getGradeColor(student.physics.grade)}`}>
-                            {student.physics.grade}%
-                          </span>
-                          {getTrendIcon(student.physics.trend)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${getGradeColor(student.biology.grade)}`}>
-                            {student.biology.grade}%
-                          </span>
-                          {getTrendIcon(student.biology.trend)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-bold text-lg ${getGradeColor(student.average)}`}>
-                          {student.average}%
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">#{student.rank}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Grades</DropdownMenuItem>
-                            <DropdownMenuItem>Send Report</DropdownMenuItem>
-                            <DropdownMenuItem>Contact Parent</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="ml-2">Loading grades...</span>
+                </div>
+              ) : filteredStudents.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Subjects</TableHead>
+                      <TableHead>Average</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.student_id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {student.student_name.split(' ').map(n => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{student.student_name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {student.student_number} • {student.class_name}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(student.subjects).map(([subject, data]: [string, any]) => (
+                              <Badge key={subject} variant="outline" className="text-xs">
+                                {subject}: {data.percentage}%
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-bold text-lg ${getGradeColor(student.average)}`}>
+                            {student.average}%
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Send Report</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12">
+                  <h3 className="text-lg font-semibold mb-2">No grades found</h3>
+                  <p className="text-muted-foreground mb-4">Add grades to get started</p>
+                  <Button onClick={() => setIsFormOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Grade
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="subjects" className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {subjectAverages.map((subject) => (
+            {subjectStats.map((subject) => (
               <Card key={subject.subject}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">{subject.subject}</CardTitle>
@@ -275,7 +320,7 @@ const Grades = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold">{subject.average}%</span>
+                    <span className="text-2xl font-bold">{Math.round(subject.average)}%</span>
                     <Badge variant={subject.improvement.startsWith('+') ? 'default' : 'destructive'}>
                       {subject.improvement}
                     </Badge>
@@ -320,6 +365,12 @@ const Grades = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <GradeForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        gradeData={selectedGrade}
+      />
     </div>
   );
 };
