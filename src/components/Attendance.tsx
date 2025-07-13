@@ -14,49 +14,36 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { useAttendance, useAttendanceStats, useUpdateAttendance } from '@/hooks/useAttendance';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Attendance = () => {
-  const [selectedDate, setSelectedDate] = useState('2024-01-15');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
 
-  const attendanceData = [
-    {
-      id: '1',
-      studentName: 'Tatenda Moyo',
-      studentNumber: 'STU001',
-      class: 'Form 4A',
-      status: 'present',
-      timeIn: '7:45 AM',
-      notes: ''
-    },
-    {
-      id: '2',
-      studentName: 'Chipo Mukamuri',
-      studentNumber: 'STU002',
-      class: 'Form 3B',
-      status: 'present',
-      timeIn: '7:50 AM',
-      notes: ''
-    },
-    {
-      id: '3',
-      studentName: 'Takudzwa Sibanda',
-      studentNumber: 'STU003',
-      class: 'Form 2C',
-      status: 'late',
-      timeIn: '8:15 AM',
-      notes: 'Transport delay'
-    },
-    {
-      id: '4',
-      studentName: 'Tinashe Gumbo',
-      studentNumber: 'STU004',
-      class: 'Form 1A',
-      status: 'absent',
-      timeIn: '',
-      notes: 'Sick leave'
+  // Fetch attendance data for the selected date
+  const { data: attendanceData = [], isLoading } = useAttendance(undefined, selectedDate);
+  const { data: stats } = useAttendanceStats();
+  const updateAttendance = useUpdateAttendance();
+
+  const handleStatusUpdate = async (attendanceId: string, newStatus: string) => {
+    try {
+      await updateAttendance.mutateAsync({
+        id: attendanceId,
+        attendanceData: { status: newStatus }
+      });
+    } catch (error) {
+      console.error('Failed to update attendance:', error);
     }
-  ];
+  };
+
+  // Filter attendance data based on search query
+  const filteredAttendance = attendanceData.filter(record => 
+    record.student_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    record.student_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    record.class_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -80,10 +67,35 @@ const Attendance = () => {
     }
   };
 
-  const presentCount = attendanceData.filter(s => s.status === 'present').length;
-  const lateCount = attendanceData.filter(s => s.status === 'late').length;
-  const absentCount = attendanceData.filter(s => s.status === 'absent').length;
-  const attendanceRate = Math.round((presentCount + lateCount) / attendanceData.length * 100);
+  const presentCount = filteredAttendance.filter(s => s.status === 'present').length;
+  const lateCount = filteredAttendance.filter(s => s.status === 'late').length;
+  const absentCount = filteredAttendance.filter(s => s.status === 'absent').length;
+  const attendanceRate = filteredAttendance.length > 0 
+    ? Math.round((presentCount + lateCount) / filteredAttendance.length * 100)
+    : 0;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Attendance</h1>
+            <p className="text-muted-foreground">Track and manage student attendance</p>
+          </div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-8 bg-muted animate-pulse rounded" />
+                <div className="h-4 bg-muted animate-pulse rounded" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -176,55 +188,83 @@ const Attendance = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendanceData.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          {student.studentName.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{student.studentName}</div>
-                        <div className="text-sm text-muted-foreground">{student.studentNumber}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{student.class}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(student.status)}
-                      <Badge variant={getStatusColor(student.status)}>
-                        {student.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {student.timeIn || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {student.notes || '-'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
+              {filteredAttendance.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      {attendanceData.length === 0 
+                        ? 'No attendance records found for this date.' 
+                        : 'No students match your search criteria.'}
+                    </p>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredAttendance.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {record.student_name?.split(' ').map(n => n[0]).join('') || 'S'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{record.student_name || 'Unknown Student'}</div>
+                          <div className="text-sm text-muted-foreground">{record.student_number || '-'}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{record.class_name || 'Unknown Class'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(record.status || 'present')}
+                        <Badge variant={getStatusColor(record.status || 'present')}>
+                          {record.status || 'present'}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(record.created_at || '').toLocaleTimeString() || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">-</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleStatusUpdate(record.id, 'present')}
+                          disabled={updateAttendance.isPending}
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleStatusUpdate(record.id, 'late')}
+                          disabled={updateAttendance.isPending}
+                        >
+                          <Clock className="h-4 w-4 text-yellow-500" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleStatusUpdate(record.id, 'absent')}
+                          disabled={updateAttendance.isPending}
+                        >
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

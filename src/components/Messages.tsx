@@ -8,61 +8,71 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Plus, Reply, Forward, Archive, Trash2, Paperclip } from 'lucide-react';
+import { useMessages, useMessageStats, useMarkAsRead, useDeleteMessage } from '@/hooks/useMessages';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Messages = () => {
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('inbox');
+  const { user } = useAuth();
 
-  const messages = [
-    {
-      id: '1',
-      from: 'Mrs. Chipo Mutendi',
-      to: 'me',
-      subject: 'Form 4A Mathematics Test Results',
-      preview: 'The recent mathematics test results are ready for review...',
-      content: 'Dear Colleague,\n\nI hope this message finds you well. I wanted to share the results of the recent Form 4A mathematics test. Overall, the class performed well with an average of 78%. However, I noticed that some students are struggling with quadratic equations...',
-      timestamp: '2 hours ago',
-      isRead: false,
-      hasAttachment: true,
-      priority: 'normal'
-    },
-    {
-      id: '2',
-      from: 'Mr. James Moyo',
-      to: 'me',
-      subject: 'Parent-Teacher Conference Request',
-      preview: 'I would like to schedule a meeting to discuss Tatenda\'s progress...',
-      content: 'Dear Teacher,\n\nI hope you are doing well. I am writing to request a parent-teacher conference to discuss my son Tatenda\'s academic progress. I have noticed some changes in his study habits and would appreciate your insights...',
-      timestamp: '1 day ago',
-      isRead: true,
-      hasAttachment: false,
-      priority: 'high'
-    },
-    {
-      id: '3',
-      from: 'Principal Mukamuri',
-      to: 'All Staff',
-      subject: 'Staff Meeting - Term 2 Planning',
-      preview: 'Mandatory staff meeting scheduled for Friday at 3:00 PM...',
-      content: 'Dear Staff Members,\n\nWe will be holding a mandatory staff meeting this Friday at 3:00 PM in the main conference room. We will discuss term 2 planning, upcoming events, and new policies...',
-      timestamp: '3 days ago',
-      isRead: true,
-      hasAttachment: true,
-      priority: 'normal'
-    }
-  ];
+  // Fetch messages based on active tab
+  const { data: inboxMessages = [], isLoading: inboxLoading } = useMessages(user?.id, 'inbox');
+  const { data: sentMessages = [], isLoading: sentLoading } = useMessages(user?.id, 'sent');
+  const { data: stats } = useMessageStats(user?.id);
+  const markAsRead = useMarkAsRead();
+  const deleteMessage = useDeleteMessage();
 
-  const sentMessages = [
-    {
-      id: '4',
-      from: 'me',
-      to: 'Mrs. Grace Sibanda',
-      subject: 'Student Fee Payment Reminder',
-      preview: 'Gentle reminder about outstanding fees for Form 3B students...',
-      timestamp: '1 week ago',
-      isRead: true
+  const isLoading = inboxLoading || sentLoading;
+
+  const handleMessageSelect = async (message: any) => {
+    setSelectedMessage(message);
+    
+    // Mark message as read if it's unread and from inbox
+    if (!message.read && activeTab === 'inbox') {
+      try {
+        await markAsRead.mutateAsync(message.id);
+      } catch (error) {
+        console.error('Failed to mark message as read:', error);
+      }
     }
-  ];
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await deleteMessage.mutateAsync(messageId);
+      if (selectedMessage?.id === messageId) {
+        setSelectedMessage(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+    }
+  };
+
+  const getCurrentMessages = () => {
+    const messages = activeTab === 'sent' ? sentMessages : inboxMessages;
+    
+    if (!searchQuery) return messages;
+    
+    return messages.filter(message => 
+      message.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      message.sender_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      message.recipient_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      message.content.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+    if (diffInHours < 48) return '1 day ago';
+    return `${Math.floor(diffInHours / 24)} days ago`;
+  };
 
   return (
     <div className="space-y-6">
@@ -77,37 +87,50 @@ const Messages = () => {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">24</CardTitle>
-            <CardDescription>Unread Messages</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">156</CardTitle>
-            <CardDescription>Total Messages</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">12</CardTitle>
-            <CardDescription>Sent Today</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">3</CardTitle>
-            <CardDescription>High Priority</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-8 bg-muted animate-pulse rounded" />
+                <div className="h-4 bg-muted animate-pulse rounded" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl">{stats?.unread || 0}</CardTitle>
+              <CardDescription>Unread Messages</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl">{stats?.total || 0}</CardTitle>
+              <CardDescription>Total Messages</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl">{stats?.sent || 0}</CardTitle>
+              <CardDescription>Sent Messages</CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl">{stats?.highPriority || 0}</CardTitle>
+              <CardDescription>High Priority</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Message List */}
         <div className="lg:col-span-1">
-          <Tabs defaultValue="inbox" className="space-y-4">
+          <Tabs defaultValue="inbox" className="space-y-4" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="inbox">Inbox</TabsTrigger>
               <TabsTrigger value="sent">Sent</TabsTrigger>
@@ -125,72 +148,95 @@ const Messages = () => {
             </div>
 
             <TabsContent value="inbox" className="space-y-2">
-              {messages.map((message) => (
-                <Card 
-                  key={message.id} 
-                  className={`cursor-pointer hover:bg-accent transition-colors ${!message.isRead ? 'border-blue-500' : ''}`}
-                  onClick={() => setSelectedMessage(message)}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            {message.from.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium truncate ${!message.isRead ? 'font-bold' : ''}`}>
-                            {message.from}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{message.timestamp}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {!message.isRead && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
-                        {message.hasAttachment && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                        {message.priority === 'high' && <Badge variant="destructive" className="text-xs">!</Badge>}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className={`text-sm mb-1 ${!message.isRead ? 'font-semibold' : ''}`}>
-                      {message.subject}
-                    </p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {message.preview}
+              {getCurrentMessages().length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-center text-muted-foreground">
+                      {inboxMessages.length === 0 ? 'No messages in inbox.' : 'No messages match your search.'}
                     </p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                getCurrentMessages().map((message) => (
+                  <Card 
+                    key={message.id} 
+                    className={`cursor-pointer hover:bg-accent transition-colors ${!message.read ? 'border-blue-500' : ''}`}
+                    onClick={() => handleMessageSelect(message)}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {message.sender_name?.split(' ').map(n => n[0]).join('') || 'S'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium truncate ${!message.read ? 'font-bold' : ''}`}>
+                              {message.sender_name || 'Unknown Sender'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimeAgo(message.created_at || '')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!message.read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className={`text-sm mb-1 ${!message.read ? 'font-semibold' : ''}`}>
+                        {message.subject}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {message.content.substring(0, 100)}...
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </TabsContent>
 
             <TabsContent value="sent" className="space-y-2">
-              {sentMessages.map((message) => (
-                <Card key={message.id} className="cursor-pointer hover:bg-accent transition-colors">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            {message.to.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">To: {message.to}</p>
-                          <p className="text-xs text-muted-foreground">{message.timestamp}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-sm mb-1">{message.subject}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {message.preview}
+              {getCurrentMessages().length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-center text-muted-foreground">
+                      {sentMessages.length === 0 ? 'No sent messages.' : 'No messages match your search.'}
                     </p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                getCurrentMessages().map((message) => (
+                  <Card key={message.id} className="cursor-pointer hover:bg-accent transition-colors"
+                        onClick={() => setSelectedMessage(message)}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {message.recipient_name?.split(' ').map(n => n[0]).join('') || 'R'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">To: {message.recipient_name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimeAgo(message.created_at || '')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-sm mb-1">{message.subject}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {message.content.substring(0, 100)}...
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </TabsContent>
 
             <TabsContent value="archived">
@@ -214,13 +260,13 @@ const Messages = () => {
                     <div className="flex items-center gap-2 mt-2">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
-                          {selectedMessage.from.split(' ').map(n => n[0]).join('')}
+                          {selectedMessage.sender_name?.split(' ').map(n => n[0]).join('') || 'S'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">{selectedMessage.from}</p>
+                        <p className="text-sm font-medium">{selectedMessage.sender_name || 'Unknown Sender'}</p>
                         <p className="text-xs text-muted-foreground">
-                          to {selectedMessage.to} • {selectedMessage.timestamp}
+                          to {selectedMessage.recipient_name || 'Unknown'} • {formatTimeAgo(selectedMessage.created_at || '')}
                         </p>
                       </div>
                     </div>
@@ -235,7 +281,12 @@ const Messages = () => {
                     <Button variant="ghost" size="sm">
                       <Archive className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDeleteMessage(selectedMessage.id)}
+                      disabled={deleteMessage.isPending}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -245,17 +296,6 @@ const Messages = () => {
                 <div className="prose prose-sm max-w-none">
                   <p className="whitespace-pre-wrap">{selectedMessage.content}</p>
                 </div>
-                {selectedMessage.hasAttachment && (
-                  <div className="mt-4 p-3 bg-accent rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Paperclip className="h-4 w-4" />
-                      <span className="text-sm">test_results.pdf</span>
-                      <Button variant="ghost" size="sm" className="ml-auto">
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                )}
                 <div className="mt-6 border-t pt-4">
                   <Textarea 
                     placeholder="Type your reply..." 
