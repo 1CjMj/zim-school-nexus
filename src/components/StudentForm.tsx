@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 import {
   Form,
   FormControl,
@@ -39,6 +40,7 @@ const studentSchema = z.object({
   date_of_birth: z.string().optional(),
   class_id: z.string().optional(),
   parent_id: z.string().optional(),
+  avatar_url: z.string().optional(),
 });
 
 interface StudentFormProps {
@@ -56,6 +58,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
   const { data: parents } = useParents();
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
+  const [avatarUrl, setAvatarUrl] = useState<string>(student?.avatar_url || '');
 
   const form = useForm<CreateStudentData>({
     resolver: zodResolver(studentSchema),
@@ -68,6 +71,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({
       date_of_birth: student?.date_of_birth || '',
       class_id: student?.class_id || '',
       parent_id: student?.parent_id || '',
+      avatar_url: student?.avatar_url || '',
     },
   });
 
@@ -99,13 +103,15 @@ export const StudentForm: React.FC<StudentFormProps> = ({
 
   const onSubmit = async (data: CreateStudentData) => {
     try {
+      const formData = { ...data, avatar_url: avatarUrl };
       if (student) {
-        await updateStudent.mutateAsync({ id: student.id, data });
+        await updateStudent.mutateAsync({ id: student.id, data: formData });
       } else {
-        await createStudent.mutateAsync(data);
+        await createStudent.mutateAsync(formData);
       }
       onOpenChange(false);
       form.reset();
+      setAvatarUrl('');
     } catch (error) {
       // Error handling is done in the mutations
     }
@@ -126,6 +132,14 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="flex justify-center mb-6">
+              <AvatarUpload
+                currentAvatarUrl={avatarUrl}
+                onUpload={setAvatarUrl}
+                userId={student?.id}
+                size="lg"
+              />
+            </div>
             <FormField
               control={form.control}
               name="full_name"

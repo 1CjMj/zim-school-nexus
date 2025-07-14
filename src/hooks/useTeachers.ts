@@ -7,6 +7,7 @@ export interface Teacher {
   full_name: string;
   email: string;
   phone?: string;
+  avatar_url?: string;
   subjects: string[];
   classes: string[];
   experience?: string;
@@ -19,6 +20,7 @@ export interface CreateTeacherData {
   full_name: string;
   email: string;
   phone?: string;
+  avatar_url?: string;
   subjects?: string[];
   experience?: string;
   qualification?: string;
@@ -36,6 +38,7 @@ export const useTeachers = () => {
           full_name,
           email,
           phone,
+          avatar_url,
           created_at,
           classes!classes_teacher_id_fkey (
             id,
@@ -53,6 +56,7 @@ export const useTeachers = () => {
         full_name: teacher.full_name,
         email: teacher.email,
         phone: teacher.phone || '',
+        avatar_url: teacher.avatar_url || '',
         subjects: [...new Set(teacher.classes?.map(c => c.subject).filter(Boolean) || [])],
         classes: teacher.classes?.map(c => c.name) || [],
         experience: '', // This would need to be added to the database schema
@@ -79,6 +83,7 @@ export const useCreateTeacher = () => {
           full_name: data.full_name,
           email: data.email,
           phone: data.phone || null,
+          avatar_url: data.avatar_url || null,
           role: 'teacher',
         })
         .select()
@@ -117,6 +122,7 @@ export const useUpdateTeacher = () => {
           full_name: data.full_name,
           email: data.email,
           phone: data.phone || null,
+          avatar_url: data.avatar_url,
         })
         .eq('id', id);
 

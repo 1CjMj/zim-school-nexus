@@ -12,6 +12,7 @@ export interface Student {
   date_of_birth?: string;
   class_id?: string;
   parent_id?: string;
+  avatar_url?: string;
   class_name?: string;
   parent_name?: string;
   created_at: string;
@@ -26,6 +27,7 @@ export interface CreateStudentData {
   date_of_birth?: string;
   class_id?: string;
   parent_id?: string;
+  avatar_url?: string;
 }
 
 export const useStudents = () => {
@@ -41,6 +43,7 @@ export const useStudents = () => {
             full_name,
             email,
             phone,
+            avatar_url,
             created_at
           ),
           classes (
@@ -60,6 +63,7 @@ export const useStudents = () => {
         full_name: student.profiles?.full_name || '',
         email: student.profiles?.email || '',
         phone: student.profiles?.phone || '',
+        avatar_url: student.profiles?.avatar_url || '',
         student_number: student.student_number || '',
         address: student.address || '',
         date_of_birth: student.date_of_birth || '',
@@ -90,6 +94,7 @@ export const useCreateStudent = () => {
           full_name: data.full_name,
           email: data.email,
           phone: data.phone || null,
+          avatar_url: data.avatar_url || null,
           role: 'student',
         })
         .select()
@@ -145,6 +150,7 @@ export const useUpdateStudent = () => {
           full_name: data.full_name,
           email: data.email,
           phone: data.phone,
+          avatar_url: data.avatar_url,
         })
         .eq('id', id);
 

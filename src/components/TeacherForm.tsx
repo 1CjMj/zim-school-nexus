@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AvatarUpload } from '@/components/ui/avatar-upload';
 import {
   Form,
   FormControl,
@@ -35,6 +36,7 @@ const teacherSchema = z.object({
   experience: z.string().optional(),
   qualification: z.string().optional(),
   status: z.enum(['active', 'on_leave']).optional(),
+  avatar_url: z.string().optional(),
 });
 
 interface TeacherFormProps {
@@ -50,6 +52,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
 }) => {
   const createTeacher = useCreateTeacher();
   const updateTeacher = useUpdateTeacher();
+  const [avatarUrl, setAvatarUrl] = useState<string>(teacher?.avatar_url || '');
 
   const form = useForm<CreateTeacherData>({
     resolver: zodResolver(teacherSchema),
@@ -60,6 +63,7 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
       experience: teacher?.experience || '',
       qualification: teacher?.qualification || '',
       status: teacher?.status || 'active',
+      avatar_url: teacher?.avatar_url || '',
     },
   });
 
@@ -87,13 +91,15 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
 
   const onSubmit = async (data: CreateTeacherData) => {
     try {
+      const formData = { ...data, avatar_url: avatarUrl };
       if (teacher) {
-        await updateTeacher.mutateAsync({ id: teacher.id, data });
+        await updateTeacher.mutateAsync({ id: teacher.id, data: formData });
       } else {
-        await createTeacher.mutateAsync(data);
+        await createTeacher.mutateAsync(formData);
       }
       onOpenChange(false);
       form.reset();
+      setAvatarUrl('');
     } catch (error) {
       // Error handling is done in the mutations
     }
@@ -114,6 +120,14 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="flex justify-center mb-6">
+              <AvatarUpload
+                currentAvatarUrl={avatarUrl}
+                onUpload={setAvatarUrl}
+                userId={teacher?.id}
+                size="lg"
+              />
+            </div>
             <FormField
               control={form.control}
               name="full_name"

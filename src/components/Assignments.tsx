@@ -214,7 +214,13 @@ const Assignments = () => {
                           )}
                         </div>
                       </div>
-                    </div>
+      </div>
+
+      <AssignmentForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        assignment={selectedAssignment}
+      />
                   </CardContent>
                 </Card>
               );
