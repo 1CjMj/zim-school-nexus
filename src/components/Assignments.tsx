@@ -14,11 +14,29 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAssignments, useAssignmentStats } from '@/hooks/useAssignments';
 import { useAuth } from '@/contexts/AuthContext';
+import { AssignmentForm } from './AssignmentForm';
 
 const Assignments = () => {
   const { user } = useAuth();
   const { data: assignments = [], isLoading } = useAssignments();
   const { data: stats } = useAssignmentStats(user?.id);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setSelectedAssignment(null);
+  };
+
+  const handleCreateAssignment = () => {
+    setSelectedAssignment(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditAssignment = (assignment: any) => {
+    setSelectedAssignment(assignment);
+    setIsFormOpen(true);
+  };
 
   const getAssignmentStatus = (assignment: any) => {
     if (!assignment.due_date) return 'active';
@@ -87,7 +105,7 @@ const Assignments = () => {
           <h1 className="text-3xl font-bold text-foreground">Assignments</h1>
           <p className="text-muted-foreground">Manage assignments and track submissions</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={handleCreateAssignment}>
           <Plus className="h-4 w-4" />
           Create Assignment
         </Button>
@@ -166,9 +184,9 @@ const Assignments = () => {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                           <DropdownMenuContent align="end">
                             <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Assignment</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditAssignment(assignment)}>Edit Assignment</DropdownMenuItem>
                             <DropdownMenuItem>View Submissions</DropdownMenuItem>
                             <DropdownMenuItem>Grade Submissions</DropdownMenuItem>
                           </DropdownMenuContent>
@@ -214,13 +232,7 @@ const Assignments = () => {
                           )}
                         </div>
                       </div>
-      </div>
-
-      <AssignmentForm
-        open={isFormOpen}
-        onOpenChange={handleFormClose}
-        assignment={selectedAssignment}
-      />
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -278,6 +290,12 @@ const Assignments = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AssignmentForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        assignment={selectedAssignment}
+      />
     </div>
   );
 };
