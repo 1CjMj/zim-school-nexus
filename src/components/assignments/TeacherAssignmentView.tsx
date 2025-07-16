@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Calendar, Clock, FileText, Users, MoreVertical, Download, Edit, Eye } from 'lucide-react';
+import { Plus, Calendar, Clock, FileText, Users, MoreVertical, Edit, Eye } from 'lucide-react';
+import { FileDownload } from '@/components/ui/file-download';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -191,11 +192,12 @@ export const TeacherAssignmentView: React.FC<TeacherAssignmentViewProps> = ({ as
                     <div>
                       <p className="text-sm font-medium">Attachments</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {assignment.file_name ? (
-                          <Button variant="outline" size="sm" className="h-6 text-xs">
-                            <Download className="h-3 w-3 mr-1" />
-                            {assignment.file_name}
-                          </Button>
+                        {assignment.file_name && assignment.file_url ? (
+                          <FileDownload
+                            url={assignment.file_url}
+                            fileName={assignment.file_name}
+                            className="h-6 text-xs"
+                          />
                         ) : (
                           <span className="text-sm text-muted-foreground">None</span>
                         )}

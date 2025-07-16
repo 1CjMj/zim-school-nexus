@@ -1,31 +1,53 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, FileText, Upload, Download } from 'lucide-react';
+import { Calendar, Clock, FileText, Upload } from 'lucide-react';
 import { Assignment } from '@/hooks/useAssignments';
+import { useSubmissions } from '@/hooks/useSubmissions';
+import { FileDownload } from '@/components/ui/file-download';
+import { SubmissionForm } from '@/components/SubmissionForm';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface StudentAssignmentViewProps {
   assignments: Assignment[];
 }
 
 export const StudentAssignmentView: React.FC<StudentAssignmentViewProps> = ({ assignments }) => {
+  const { user } = useAuth();
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [isSubmissionFormOpen, setIsSubmissionFormOpen] = useState(false);
+  
+  const { data: submissions = [] } = useSubmissions();
+  
   const getAssignmentStatus = (assignment: Assignment) => {
+    const submission = submissions.find(s => s.assignment_id === assignment.id);
+    if (submission) {
+      return submission.status === 'graded' ? 'graded' : 'submitted';
+    }
+    
     if (!assignment.due_date) return 'active';
     const dueDate = new Date(assignment.due_date);
     const now = new Date();
     
-    // TODO: Check actual submission status from database
-    // For now, mock some submitted assignments
-    if (Math.random() > 0.7) return 'submitted';
     if (dueDate < now) return 'overdue';
     return 'active';
+  };
+
+  const getSubmissionForAssignment = (assignmentId: string) => {
+    return submissions.find(s => s.assignment_id === assignmentId);
+  };
+
+  const handleSubmitAssignment = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+    setIsSubmissionFormOpen(true);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'default';
       case 'submitted': return 'secondary';
+      case 'graded': return 'outline';
       case 'overdue': return 'destructive';
       default: return 'default';
     }
@@ -70,6 +92,8 @@ export const StudentAssignmentView: React.FC<StudentAssignmentViewProps> = ({ as
       <div className="space-y-4">
         {assignments.map((assignment) => {
           const status = getAssignmentStatus(assignment);
+          const submission = getSubmissionForAssignment(assignment.id);
+          
           return (
             <Card key={assignment.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
@@ -92,6 +116,11 @@ export const StudentAssignmentView: React.FC<StudentAssignmentViewProps> = ({ as
                     <Badge variant={getStatusColor(status)}>
                       {status}
                     </Badge>
+                    {submission?.grade && (
+                      <Badge variant="outline">
+                        {submission.grade} / {assignment.points || 100}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -116,11 +145,12 @@ export const StudentAssignmentView: React.FC<StudentAssignmentViewProps> = ({ as
                   <div>
                     <p className="text-sm font-medium">Assignment File</p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {assignment.file_name ? (
-                        <Button variant="outline" size="sm" className="h-6 text-xs">
-                          <Download className="h-3 w-3 mr-1" />
-                          {assignment.file_name}
-                        </Button>
+                      {assignment.file_name && assignment.file_url ? (
+                        <FileDownload
+                          url={assignment.file_url}
+                          fileName={assignment.file_name}
+                          className="h-6 text-xs"
+                        />
                       ) : (
                         <span className="text-sm text-muted-foreground">None</span>
                       )}
@@ -128,20 +158,37 @@ export const StudentAssignmentView: React.FC<StudentAssignmentViewProps> = ({ as
                   </div>
                   <div className="flex items-center gap-2">
                     <Button 
-                      variant={status === 'submitted' ? 'secondary' : 'default'} 
+                      variant={status === 'submitted' || status === 'graded' ? 'secondary' : 'default'} 
                       size="sm"
                       className="flex items-center gap-1"
+                      onClick={() => handleSubmitAssignment(assignment)}
                     >
                       <Upload className="h-3 w-3" />
-                      {status === 'submitted' ? 'Resubmit' : 'Submit'}
+                      {status === 'submitted' || status === 'graded' ? 'Resubmit' : 'Submit'}
                     </Button>
                   </div>
                 </div>
+                
+                {submission?.feedback && (
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium">Teacher Feedback:</p>
+                    <p className="text-sm text-muted-foreground mt-1">{submission.feedback}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
+      
+      {selectedAssignment && (
+        <SubmissionForm
+          open={isSubmissionFormOpen}
+          onOpenChange={setIsSubmissionFormOpen}
+          assignment={selectedAssignment}
+          existingSubmission={getSubmissionForAssignment(selectedAssignment.id)}
+        />
+      )}
     </div>
   );
 };
