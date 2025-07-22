@@ -8,8 +8,7 @@ export interface Teacher {
   email: string;
   phone?: string;
   avatar_url?: string;
-  subjects: string[];
-  classes: string[];
+  // Remove subjects/classes for now to avoid join issues
   experience?: string;
   qualification?: string;
   status: 'active' | 'on_leave';
@@ -33,19 +32,7 @@ export const useTeachers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          phone,
-          avatar_url,
-          created_at,
-          classes!classes_teacher_id_fkey (
-            id,
-            name,
-            subject
-          )
-        `)
+        .select('id, full_name, email, phone, avatar_url, created_at, role')
         .eq('role', 'teacher')
         .order('full_name');
 
@@ -57,8 +44,6 @@ export const useTeachers = () => {
         email: teacher.email,
         phone: teacher.phone || '',
         avatar_url: teacher.avatar_url || '',
-        subjects: [...new Set(teacher.classes?.map(c => c.subject).filter(Boolean) || [])],
-        classes: teacher.classes?.map(c => c.name) || [],
         experience: '', // This would need to be added to the database schema
         qualification: '', // This would need to be added to the database schema
         status: 'active' as const, // This would need to be added to the database schema

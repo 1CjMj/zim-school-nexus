@@ -20,11 +20,11 @@ export interface CreateClassData {
   teacher_id?: string;
 }
 
-export const useClassManagement = () => {
+export const useClassManagement = (teacherId?: string) => {
   return useQuery({
-    queryKey: ['class-management'],
+    queryKey: ['class-management', teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('classes')
         .select(`
           *,
@@ -37,9 +37,11 @@ export const useClassManagement = () => {
           )
         `)
         .order('name');
-
+      if (teacherId) {
+        query = query.eq('teacher_id', teacherId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
-
       return data?.map(cls => ({
         id: cls.id,
         name: cls.name,
